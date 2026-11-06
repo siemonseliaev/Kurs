@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Сервис базы данных
+  db:
+    image: postgres:15-alpine
+    container_name: event_db
+    restart: always
+    environment:
+      POSTGRES_USER: event_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: event_platform_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - event-net
+
+  # Сервис приложения (платформы управления мероприятиями)
+  web:
+    build: . # или указание готового image: username/event-app:latest
+    container_name: event_web
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=event_user
+      - DB_PASSWORD=secure_password
+      - DB_NAME=event_platform_db
+    depends_on:
+      - db
+    networks:
+      - event-net
+
+volumes:
+  pgdata:
+
+networks:
+  event-net:
+    driver: bridge
