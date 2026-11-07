@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Расписание мероприятий</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        fieldset { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        legend { font-weight: bold; padding: 0 5px; }
+        .form-row { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 12px; }
+        .form-group { flex: 1; min-width: 150px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+
+        /* Стили для таблицы расписания */
+        .schedule-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        .schedule-table th, .schedule-table td { border: 1px solid #ddd; text-align: center; padding: 6px; font-size: 13px; }
+        .schedule-table th { background-color: #007bff; color: white; }
+        .schedule-table td { height: 40px; vertical-align: top; background: #fff; }
+        .time-col { background-color: #f8f9fa; font-weight: bold; width: 90px; }
+
+        /* Стили блока события внутри ячейки */
+        .event-card {
+            background-color: #e3f2fd;
+            border-left: 4px solid #1976d2;
+            padding: 4px 6px;
+            border-radius: 3px;
+            text-align: left;
+            position: relative;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .event-card .delete-btn {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            background: transparent;
+            color: #dc3545;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Управление мероприятиями (Расписание)</h2>
+
+    <!-- Форма добавления события -->
+    <form id="eventForm">
+        <fieldset>
+            <legend>Добавить новое мероприятие</legend>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="eventName">Имя мероприятия:</label>
+                    <input type="text" id="eventName" required placeholder="Например: Созвон по проекту">
+                </div>
+                <div class="form-group">
+                    <label for="eventDay">День недели:</label>
+                    <select id="eventDay" required>
+                        <option value="mon">Понедельник</option>
+                        <option value="tue">Вторник</option>
+                        <option value="wed">Среда</option>
+                        <option value="thu">Четверг</option>
+                        <option value="fri">Пятница</option>
+                        <option value="sat">Суббота</option>
+                        <option value="sun">Воскресенье</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="eventHour">Время (час):</label>
+                    <select id="eventHour" required></select>
+                </div>
+            </div>
+            <button type="submit">Добавить в расписание</button>
+        </fieldset>
+    </form>
+
+    <!-- Таблица-расписание -->
+    <fieldset>
+        <legend>Сетка недели</legend>
+        <div style="overflow-x: auto;">
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th class="time-col">Время</th>
+                        <th>Пн</th>
+                        <th>Вт</th>
+                        <th>Ср</th>
+                        <th>Чт</th>
+                        <th>Пт</th>
+                        <th>Сб</th>
+                        <th>Вс</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody">
+                    <!-- Заполняется динамически скриптом -->
+                </tbody>
+            </table>
+        </div>
+    </fieldset>
+</div>
+
+<script>
+    const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const scheduleBody = document.getElementById('scheduleBody');
+    const eventHourSelect = document.getElementById('eventHour');
+
+    // 1. Генерируем строки таблицы по часам (от 00:00 до 23:00)
+    for (let hour = 0; hour < 24; hour++) {
+        const timeString = `${String(hour).padStart(2, '0')}:00`;
+        
+        // Заполняем выпадающий список часов в форме
+        const option = document.createElement('option');
+        option.value = hour;
+        option.textContent = timeString;
+        eventHourSelect.appendChild(option);
+
+        // Создаем строку таблицы (от 0:00 до 23:00)
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="time-col">${timeString}</td>` + 
+            days.map(day => `<td data-day="${day}" data-hour="${hour}"></td>`).join('');
+        
+        scheduleBody.appendChild(tr);
+    }
+
+    // 2. Логика добавления события
+    const form = document.getElementById('eventForm');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('eventName').value;
+        const day = document.getElementById('eventDay').value;
+        const hour = document.getElementById('eventHour').value;
+
+        // Находим нужную ячейку по дню и часу
+        const cell = document.querySelector(`td[data-day="${day}"][data-hour="${hour}"]`);
+
+        if (cell) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            card.innerHTML = `
+                <span>${name}</span>
+                <button class="delete-btn" onclick="this.parentElement.remove()" title="Удалить">✕</button>
+            `;
+            cell.appendChild(card);
+        }
+
+        form.reset();
+    });
+</script>
+
+</body>
+</html>
