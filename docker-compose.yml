@@ -11,9 +11,14 @@ services:
       POSTGRES_DB: event_platform_db
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Автоматическое создание таблиц
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - event-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U event_user -d event_platform_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
 
   backend:
     build: ./backend
@@ -26,7 +31,8 @@ services:
       - DB_PASSWORD=secure_password
       - DB_NAME=event_platform_db
     depends_on:
-      - db
+      db:
+        condition: service_healthy # <--- Теперь бэкенд будет ждать, пока БД полностью проснется
     networks:
       - event-net
 

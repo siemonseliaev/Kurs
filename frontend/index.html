@@ -76,7 +76,7 @@
                 </div>
                 <div class="form-group">
                     <label for="eventHour">Время (час):</label>
-                    <select id="eventHour" required></select>
+                    <input type="time" id="eventTime" required value="00:00">
                 </div>
             </div>
             <button type="submit">Добавить в расписание</button>
@@ -111,20 +111,12 @@
 <script>
     const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     const scheduleBody = document.getElementById('scheduleBody');
-    const eventHourSelect = document.getElementById('eventHour');
     const form = document.getElementById('eventForm');
 
     // 1. Генерируем строки таблицы по часам (от 00:00 до 23:00)
     for (let hour = 0; hour < 24; hour++) {
         const timeString = `${String(hour).padStart(2, '0')}:00`;
         
-        // Заполняем выпадающий список часов в форме
-        const option = document.createElement('option');
-        option.value = hour;
-        option.textContent = timeString;
-        eventHourSelect.appendChild(option);
-
-        // Создаем строку таблицы (от 0:00 до 23:00)
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="time-col">${timeString}</td>` + 
             days.map(day => `<td data-day="${day}" data-hour="${hour}"></td>`).join('');
@@ -132,40 +124,25 @@
         scheduleBody.appendChild(tr);
     }
 
-    // 2. Функция рендеринга карточки события с кнопкой регистрации
-   function renderEventCard(ev) {
-    const cell = document.querySelector(`td[data-day="${ev.day}"][data-hour="${ev.hour}"]`);
-    if (cell) {
-        const card = document.createElement('div');
-        card.className = 'event-card';
-        card.innerHTML = `
-            <button class="delete-btn" onclick="deleteEvent(${ev.id}, this)" title="Удалить">✕</button>
-            <strong>${ev.name}</strong><br>
-            <button onclick="openRegistrationModal(${ev.id}, '${ev.name}')" style="font-size:10px; padding:2px 5px; margin-top:4px;">Регистрация</button>
-        `;
-        cell.appendChild(card);
-            }
+    // 2. Функция рендеринга карточки события
+    function renderEventCard(ev) {
+        // Извлекаем только часы (первую часть до двоеточия)
+        const hour = parseInt(ev.time.split(':')[0]);
+        const cell = document.querySelector(`td[data-day="${ev.day}"][data-hour="${hour}"]`);
+        
+        if (cell) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            card.innerHTML = `
+                <button class="delete-btn" onclick="deleteEvent(${ev.id}, this)" title="Удалить">✕</button>
+                <strong>${ev.time} — ${ev.name}</strong><br>
+                <button onclick="openRegistrationModal(${ev.id}, '${ev.name}')" style="font-size:10px; padding:2px 5px; margin-top:4px;">Регистрация</button>
+            `;
+            cell.appendChild(card);
         }
-    async function deleteEvent(eventId, btnElement) {
-    if (!confirm('Вы уверены, что хотите удалить мероприятие?')) return;
-
-    try {
-        const response = await fetch(`/api/events/${eventId}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            // Удаляем элемент карточки прямо из DOM-дерева
-            btnElement.closest('.event-card').remove();
-        } else {
-            alert('Не удалось удалить мероприятие.');
-        }
-    } catch (error) {
-        console.error('Ошибка при удалении:', error);
     }
-}
 
-    // 3. Загрузка существующих мероприятий с бэкенда при открытии страницы
+    // 3. Загрузка мероприятий с бэкенда
     async function loadEvents() {
         try {
             const response = await fetch('/api/events');
@@ -178,19 +155,18 @@
         }
     }
 
-    // 4. Отправка нового события на бэкенд через форму
+    // 4. Отправка нового события
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const name = document.getElementById('eventName').value;
         const day = document.getElementById('eventDay').value;
-        const hour = document.getElementById('eventHour').value;
-
+        const time = document.getElementById('eventTime').value;
         try {
             const response = await fetch('/api/events', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, day, hour: parseInt(hour) })
+                body: JSON.stringify({ name, day, time })
             });
 
             if (response.ok) {
@@ -205,7 +181,24 @@
         }
     });
 
-    // 5. Функция регистрации пользователя на мероприятие
+    // 5. Удаление мероприятия
+    async function deleteEvent(eventId, btnElement) {
+        try {
+            const response = await fetch(`/api/events/${eventId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                btnElement.closest('.event-card').remove();
+            } else {
+                alert('Не удалось удалить мероприятие.');
+            }
+        } catch (error) {
+            console.error('Ошибка при удалении:', error);
+        }
+    }
+
+    // 6. Регистрация
     async function openRegistrationModal(eventId, eventName) {
         const userName = prompt(`Введите ваше имя для регистрации на "${eventName}":`);
         if (!userName) return;
@@ -229,9 +222,7 @@
         }
     }
 
-    // Запускаем загрузку мероприятий при старте
     loadEvents();
 </script>
-
 </body>
 </html>

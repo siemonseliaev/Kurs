@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     day VARCHAR(10) NOT NULL,
-    hour INT NOT NULL
+    time VARCHAR(5) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS registrations (

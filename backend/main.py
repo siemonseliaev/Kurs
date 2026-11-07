@@ -13,7 +13,6 @@ def get_db_connection():
         password=os.getenv("DB_PASSWORD", "secure_password")
     )
 
-# Автоматическое создание таблиц при запуске бэкенда
 @app.on_event("startup")
 def startup_db():
     conn = get_db_connection()
@@ -23,7 +22,7 @@ def startup_db():
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             day VARCHAR(10) NOT NULL,
-            hour INT NOT NULL
+            time VARCHAR(5) NOT NULL
         );
         CREATE TABLE IF NOT EXISTS registrations (
             id SERIAL PRIMARY KEY,
@@ -40,7 +39,7 @@ def startup_db():
 class EventCreate(BaseModel):
     name: str
     day: str
-    hour: int
+    time: str  # Принимает строку вида "14:30"
 
 class RegistrationCreate(BaseModel):
     event_id: int
@@ -51,8 +50,8 @@ class RegistrationCreate(BaseModel):
 def get_events():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, name, day, hour FROM events;")
-    events = [{"id": row[0], "name": row[1], "day": row[2], "hour": row[3]} for row in cur.fetchall()]
+    cur.execute("SELECT id, name, day, time FROM events;")
+    events = [{"id": row[0], "name": row[1], "day": row[2], "time": row[3]} for row in cur.fetchall()]
     cur.close()
     conn.close()
     return events
@@ -61,7 +60,7 @@ def get_events():
 def create_event(event: EventCreate):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO events (name, day, hour) VALUES (%s, %s, %s) RETURNING id;", (event.name, event.day, event.hour))
+    cur.execute("INSERT INTO events (name, day, time) VALUES (%s, %s, %s) RETURNING id;", (event.name, event.day, event.time))
     event_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
@@ -89,15 +88,12 @@ def register_for_event(reg: RegistrationCreate):
 def delete_event(event_id: int):
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Проверяем, существует ли мероприятие
     cur.execute("SELECT id FROM events WHERE id = %s;", (event_id,))
     if not cur.fetchone():
         cur.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     
-    # Благодаря ON DELETE CASCADE в базе автоматически удалятся и связанные записи на мероприятие
     cur.execute("DELETE FROM events WHERE id = %s;", (event_id,))
     conn.commit()
     cur.close()
