@@ -33,6 +33,7 @@
             font-size: 12px;
             margin-bottom: 4px;
         }
+
         .event-card .delete-btn {
             position: absolute;
             top: 2px;
@@ -111,6 +112,7 @@
     const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     const scheduleBody = document.getElementById('scheduleBody');
     const eventHourSelect = document.getElementById('eventHour');
+    const form = document.getElementById('eventForm');
 
     // 1. Генерируем строки таблицы по часам (от 00:00 до 23:00)
     for (let hour = 0; hour < 24; hour++) {
@@ -130,30 +132,105 @@
         scheduleBody.appendChild(tr);
     }
 
-    // 2. Логика добавления события
-    const form = document.getElementById('eventForm');
-    form.addEventListener('submit', function(e) {
+    // 2. Функция рендеринга карточки события с кнопкой регистрации
+   function renderEventCard(ev) {
+    const cell = document.querySelector(`td[data-day="${ev.day}"][data-hour="${ev.hour}"]`);
+    if (cell) {
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.innerHTML = `
+            <button class="delete-btn" onclick="deleteEvent(${ev.id}, this)" title="Удалить">✕</button>
+            <strong>${ev.name}</strong><br>
+            <button onclick="openRegistrationModal(${ev.id}, '${ev.name}')" style="font-size:10px; padding:2px 5px; margin-top:4px;">Регистрация</button>
+        `;
+        cell.appendChild(card);
+            }
+        }
+    async function deleteEvent(eventId, btnElement) {
+    if (!confirm('Вы уверены, что хотите удалить мероприятие?')) return;
+
+    try {
+        const response = await fetch(`/api/events/${eventId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Удаляем элемент карточки прямо из DOM-дерева
+            btnElement.closest('.event-card').remove();
+        } else {
+            alert('Не удалось удалить мероприятие.');
+        }
+    } catch (error) {
+        console.error('Ошибка при удалении:', error);
+    }
+}
+
+    // 3. Загрузка существующих мероприятий с бэкенда при открытии страницы
+    async function loadEvents() {
+        try {
+            const response = await fetch('/api/events');
+            if (response.ok) {
+                const events = await response.json();
+                events.forEach(ev => renderEventCard(ev));
+            }
+        } catch (error) {
+            console.error('Ошибка при загрузке мероприятий:', error);
+        }
+    }
+
+    // 4. Отправка нового события на бэкенд через форму
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const name = document.getElementById('eventName').value;
         const day = document.getElementById('eventDay').value;
         const hour = document.getElementById('eventHour').value;
 
-        // Находим нужную ячейку по дню и часу
-        const cell = document.querySelector(`td[data-day="${day}"][data-hour="${hour}"]`);
+        try {
+            const response = await fetch('/api/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, day, hour: parseInt(hour) })
+            });
 
-        if (cell) {
-            const card = document.createElement('div');
-            card.className = 'event-card';
-            card.innerHTML = `
-                <span>${name}</span>
-                <button class="delete-btn" onclick="this.parentElement.remove()" title="Удалить">✕</button>
-            `;
-            cell.appendChild(card);
+            if (response.ok) {
+                const newEvent = await response.json();
+                renderEventCard(newEvent);
+                form.reset();
+            } else {
+                alert('Не удалось создать мероприятие.');
+            }
+        } catch (error) {
+            console.error('Ошибка сети:', error);
         }
-
-        form.reset();
     });
+
+    // 5. Функция регистрации пользователя на мероприятие
+    async function openRegistrationModal(eventId, eventName) {
+        const userName = prompt(`Введите ваше имя для регистрации на "${eventName}":`);
+        if (!userName) return;
+        const userEmail = prompt(`Введите ваш Email:`);
+        if (!userEmail) return;
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event_id: eventId, name: userName, email: userEmail })
+            });
+
+            if (response.ok) {
+                alert('Регистрация прошла успешно!');
+            } else {
+                alert('Ошибка при регистрации.');
+            }
+        } catch (error) {
+            console.error('Ошибка сети:', error);
+        }
+    }
+
+    // Запускаем загрузку мероприятий при старте
+    loadEvents();
 </script>
 
 </body>
