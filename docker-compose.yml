@@ -20,9 +20,16 @@ services:
       timeout: 3s
       retries: 5
 
-  backend:
+  redis:
+    image: redis:7-alpine
+    container_name: event_redis
+    restart: always
+    networks:
+      - event-net
+
+  backend-1:
     build: ./backend
-    container_name: event_backend
+    container_name: event_backend_1
     restart: always
     environment:
       - DB_HOST=db
@@ -30,9 +37,43 @@ services:
       - DB_USER=event_user
       - DB_PASSWORD=secure_password
       - DB_NAME=event_platform_db
+      - REDIS_HOST=redis
     depends_on:
       db:
-        condition: service_healthy # <--- Теперь бэкенд будет ждать, пока БД полностью проснется
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - event-net
+
+  backend-2:
+    build: ./backend
+    container_name: event_backend_2
+    restart: always
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=event_user
+      - DB_PASSWORD=secure_password
+      - DB_NAME=event_platform_db
+      - REDIS_HOST=redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - event-net
+
+  balancer:
+    image: nginx:alpine
+    container_name: event_load_balancer
+    restart: always
+    volumes:
+      - ./balancer.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend-1
+      - backend-2
     networks:
       - event-net
 
@@ -44,9 +85,23 @@ services:
       - "8000:80"
     volumes:
       - ./frontend:/usr/share/nginx/html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf  # Конфиг для проксирования запросов к бэкенду
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - backend
+      - balancer
+    networks:
+      - event-net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: event_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
     networks:
       - event-net
 
