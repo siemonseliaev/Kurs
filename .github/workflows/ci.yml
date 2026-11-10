@@ -2,24 +2,35 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, stage4 ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main, stage4 ]
+    branches: [ main, master ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     steps:
       # 1. Скачиваем исходный код репозитория
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Устанавливаем Docker Compose (если требуется для проверки сборки)
-      - name: Set up Docker Compose
+      # 2. Настраиваем Docker Buildx (для работы с контейнерами)
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 3. Проверяем валидность и собираем контейнеры через docker-compose
+      # 3. Проверяем валидность и собираем контейнеры через docker compose
       - name: Build Docker containers
         run: |
           docker compose build
+
+  deploy:
+    needs: build-and-test  # Привязка: деплой начнется только после успешного завершения build-and-test
+    runs-on: ubuntu-latest
+    # Если вы деплоите на удаленный сервер, здесь добавляются шаги подключения (например, через SSH)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Production Deployment
+        run: |
+          echo "Здесь пишется команда деплоя или поднятия сервисов"
