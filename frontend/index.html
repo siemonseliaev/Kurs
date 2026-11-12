@@ -125,20 +125,30 @@
     }
 
     // 2. Функция рендеринга карточки события
+    // 2. Функция рендеринга карточки события с учетом временного порядка
     function renderEventCard(ev) {
-        // Извлекаем только часы (первую часть до двоеточия)
-        const hour = parseInt(ev.time.split(':')[0]);
+        const hour = parseInt(ev.time.split(':')[0], 10);
         const cell = document.querySelector(`td[data-day="${ev.day}"][data-hour="${hour}"]`);
         
         if (cell) {
             const card = document.createElement('div');
             card.className = 'event-card';
+            card.dataset.time = ev.time; // Сохраняем время для сравнения (например, "17:06")
             card.innerHTML = `
                 <button class="delete-btn" onclick="deleteEvent(${ev.id}, this)" title="Удалить">✕</button>
                 <strong>${ev.time} — ${ev.name}</strong><br>
                 <button onclick="openRegistrationModal(${ev.id}, '${ev.name}')" style="font-size:10px; padding:2px 5px; margin-top:4px;">Регистрация</button>
             `;
-            cell.appendChild(card);
+
+            // Ищем карточку, время которой строго больше времени нового события
+            const existingCards = Array.from(cell.querySelectorAll('.event-card'));
+            const nextCard = existingCards.find(c => c.dataset.time > ev.time);
+
+            if (nextCard) {
+                cell.insertBefore(card, nextCard);
+            } else {
+                cell.appendChild(card);
+            }
         }
     }
 
